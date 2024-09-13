@@ -5,7 +5,7 @@ use crate::persistence::{
     connect_db, get_message_by_id, get_message_count, insert_message, update_message_by_id,
 };
 use poise::serenity_prelude::{
-    self as serenity, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, Mentionable, UserId,
+    self as serenity, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, Mentionable, Timestamp, UserId
 };
 use serenity::FullEvent;
 
@@ -66,6 +66,7 @@ pub async fn event_handler(
 
                     let mut embed = CreateEmbed::new()
                         .title("Message Updated")
+                        .timestamp(Timestamp::now())
                         .colour(Colour::ORANGE);
 
                     if user_id != 0 {
@@ -117,6 +118,7 @@ pub async fn event_handler(
 
             let mut embed = CreateEmbed::new()
                 .title("Message Deleted")
+                .timestamp(Timestamp::now())
                 .colour(Colour::DARK_RED);
 
             if user_id != 0 {
