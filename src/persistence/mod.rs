@@ -45,6 +45,26 @@ pub fn get_message_by_id(conn: &Connection, id: u64) -> Result<Option<(u64, Stri
     Ok(result)
 }
 
+pub fn get_message_author_by_id(conn: &Connection, id: u64) -> Result<Option<u64>> {
+    let mut stmt = conn.prepare("SELECT author FROM message WHERE id = ?1")?;
+    let result = stmt
+        .query_row([&id], |row| {
+            let author: u64 = row.get(0)?;
+            Ok(author)
+        }).optional()?;
+    Ok(result)
+}
+
+pub fn get_message_content_by_id(conn: &Connection, id: u64) -> Result<Option<String>> {
+    let mut stmt = conn.prepare("SELECT content FROM message WHERE id = ?1")?;
+    let result = stmt
+        .query_row([&id], |row| {
+            let content: String = row.get(0)?;
+            Ok(content)
+        }).optional()?;
+    Ok(result)
+}
+
 pub fn get_message_count(conn: &Connection) -> Result<u64> {
     let mut stmt = conn.prepare("SELECT COUNT(*) FROM message")?;
     let count: u64 = stmt.query_row([], |row| row.get(0))?;

@@ -1,13 +1,16 @@
 use crate::{Data, Error};
 use log::{debug, info, warn};
 
-use crate::persistence::{
-    connect_db, get_message_by_id, get_message_count, insert_message, update_message_by_id,
-};
-use poise::serenity_prelude::{
-    self as serenity, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, Mentionable, Timestamp, UserId
-};
+use crate::persistence::{connect_db, get_message_author_by_id, get_message_by_id, get_message_content_by_id, get_message_count, insert_message, update_message_by_id};
+use poise::serenity_prelude::{self as serenity, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, Mentionable, Timestamp, UserId};
 use serenity::FullEvent;
+
+fn construct_msg_ref(guild_id: u64, channel_id: u64, message_id: u64) -> String {
+    format!("https://discord.com/channels/{}/{}/{}",
+            guild_id.to_string(),
+            channel_id.to_string(),
+            message_id.to_string())
+}
 
 pub async fn event_handler(
     ctx: &serenity::Context,
@@ -53,43 +56,56 @@ pub async fn event_handler(
         FullEvent::MessageUpdate { event, .. } => {
             let db = connect_db().expect("Database Connection Failure");
             debug!("Message {:?} updated to: {:?}", event.id, event.content);
+
+            let user_id = match &event.author {
+                Some(user) => user.id.get(),
+                None => {
+                    get_message_author_by_id(&db, event.id.get())
+                        .expect("Could not execute query.")
+                        .unwrap_or(0)
+                }
+            };
+            if user_id == 0 { return Ok(()) }
+
+            let user = UserId::new(user_id).to_user(&ctx.http)
+                .await.expect("User should exist.");
+            if user.bot { return Ok(()) }
+
+            let guild_id = event.guild_id.map_or(0, |id| id.get());
+            if guild_id == 0 { return Ok(()) }
+
             match &event.content {
                 Some(content) => {
-                    let (user_id, previous_content) = get_message_by_id(&db, event.id.get())
-                        .expect("Error making the get request.")
-                        .unwrap_or((0, "<unknown message>".to_string()));
-                    let mut user_name = "<unknown user>".to_string();
+                    let mut previous_content = get_message_content_by_id(&db, event.id.get())
+                        .expect("Could not execute query.")
+                        .unwrap_or("<unknown message>".to_string());
 
-                    if framework.bot_id == user_id {
+                    if previous_content.eq(content) {
+                        warn!("TODO: Implement non-content message updates (i.e. Embeds)");
                         return Ok(());
                     }
 
-                    let mut embed = CreateEmbed::new()
+                    previous_content.truncate(1024);
+
+                    let mut current_content = content.clone();
+                    current_content.truncate(1024);
+
+                    if framework.bot_id == user_id { return Ok(()); }
+
+                    let embed = CreateEmbed::new()
                         .title("Message Updated")
+                        .url(construct_msg_ref(guild_id, event.channel_id.get(), event.id.get()))
                         .timestamp(Timestamp::now())
-                        .colour(Colour::ORANGE);
-
-                    if user_id != 0 {
-                        let author = match &event.author {
-                            Some(author) => author,
-                            None => &UserId::new(user_id)
-                                .to_user(&ctx.http)
-                                .await
-                                .expect("User should exist and be accessible at this time."),
-                        };
-                        user_name = author.mention().to_string();
-                        embed = embed
-                            .footer(CreateEmbedFooter::new(&author.name).icon_url(author.face()))
-                    }
-
-                    embed = embed
+                        .colour(Colour::ORANGE)
                         .field(
                             "Author",
-                            format!("{} ({})", user_name, user_id.to_string()),
+                            format!("{} ({})", user.mention(), user_id.to_string()),
                             false,
                         )
                         .field("Old Message", previous_content, false)
-                        .field("New Message", content, false);
+                        .field("New Message", current_content, false)
+                        .footer(CreateEmbedFooter::new(&user.name)
+                            .icon_url(user.face()));
 
                     data.log_channel
                         .send_message(&ctx.http, CreateMessage::new().embed(embed))
@@ -115,6 +131,8 @@ pub async fn event_handler(
             if user_id == framework.bot_id.get() {
                 return Ok(());
             }
+
+            debug!("Message {:?} deleted.", deleted_message_id);
 
             let mut embed = CreateEmbed::new()
                 .title("Message Deleted")
