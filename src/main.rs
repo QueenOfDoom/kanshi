@@ -1,6 +1,6 @@
 mod event;
-mod persistence;
 mod log;
+mod persistence;
 
 use crate::log::setup_logger;
 use crate::persistence::{connect_db, initialize_db};
@@ -27,7 +27,8 @@ async fn main() {
 
     dotenv::dotenv().ok();
     let token = std::env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
-    let log_channel = std::env::var("LOG_CHANNEL").expect("Expected a log channel in the environment");
+    let log_channel =
+        std::env::var("LOG_CHANNEL").expect("Expected a log channel in the environment");
     let environment = std::env::var("ENV").unwrap_or("production".to_string());
     info!("Environment is set up");
 
@@ -47,7 +48,11 @@ async fn main() {
                     poise::builtins::register_globally(ctx, commands).await?;
                 }
                 Ok(Data {
-                    log_channel: ChannelId::new(log_channel.parse().expect("Channel ID: Not a proper Discord Snowflake")),
+                    log_channel: ChannelId::new(
+                        log_channel
+                            .parse()
+                            .expect("Channel ID: Not a proper Discord Snowflake"),
+                    ),
                     environment,
                 })
             })
@@ -56,7 +61,8 @@ async fn main() {
 
     let mut client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)
-        .await.expect("Error creating client");
+        .await
+        .expect("Error creating client");
 
     let ctrl_c = signal::ctrl_c();
     tokio::select! {

@@ -1,5 +1,5 @@
-use fern::colors::{Color, ColoredLevelConfig};
 use chrono::Local;
+use fern::colors::{Color, ColoredLevelConfig};
 use std::fs;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
@@ -26,7 +26,7 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
                 })
                 .level(log::LevelFilter::Debug)
                 .filter(|metadata| metadata.target().contains("kanshi"))
-                .chain(std::io::stdout())
+                .chain(std::io::stdout()),
         )
         .chain(
             fern::Dispatch::new()
@@ -35,14 +35,14 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
                         "[{}][{}][{}] {}",
                         Local::now().format("%Y-%m-%d %H:%M:%S"),
                         record.level(),
-                        record.target(),  // Add the log target (module/crate)
+                        record.target(), // Add the log target (module/crate)
                         message
                     ))
                 })
                 .level(log::LevelFilter::Info)
                 .level_for("kanshi", log::LevelFilter::Debug)
                 .level_for("tracing::span", log::LevelFilter::Error)
-                .chain(fern::log_file(log_file_name)?)
+                .chain(fern::log_file(log_file_name)?),
         )
         .apply()?;
 
