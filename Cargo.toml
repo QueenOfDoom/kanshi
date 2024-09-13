@@ -1,0 +1,15 @@
+[package]
+name = "kanshi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = "0.4.38"
+colored = "2.1.0"
+ctrlc = "3.4.5"
+dotenv = "0.15.0"
+fern = { version = "0.6.2", features = ["colored"] }
+log = "0.4.22"
+poise = "0.6.1"
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+tokio = { version = "1.40.0", features = ["rt-multi-thread", "signal"] }

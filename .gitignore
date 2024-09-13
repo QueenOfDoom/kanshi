@@ -1,0 +1,10 @@
+# Rust Build Output
+/target
+
+# IDE
+.idea/
+
+# Local Environmen
+logs/
+.env
+*.db
