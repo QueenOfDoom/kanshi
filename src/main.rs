@@ -9,7 +9,7 @@ use ::log::{error, info};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use dotenvy::dotenv;
 use poise::serenity_prelude as serenity;
-use poise::serenity_prelude::ChannelId;
+use poise::serenity_prelude::{ChannelId, CreateMessage};
 use serenity::GatewayIntents;
 use std::error::Error as StdError;
 use tokio::signal;
@@ -33,7 +33,9 @@ fn run_migrations(mut conn: SqlitePooledConnection) -> Result<(), Box<dyn StdErr
 async fn main() {
     dotenv().ok();
     let token = std::env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
-    let log_channel = std::env::var("LOG_CHANNEL").expect("Expected a log channel in the environment");
+    let log_channel = std::env::var("LOG_CHANNEL")
+        .expect("Expected a log channel in the environment").parse()
+        .expect("Channel ID: Not a proper Discord Snowflake");
     let environment = std::env::var("ENV").unwrap_or("production".to_string());
     info!("Environment is set up");
     
@@ -45,6 +47,7 @@ async fn main() {
     
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
 
+    let framework_environment = environment.clone();
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             event_handler: |ctx, event, framework, data| {
@@ -52,19 +55,15 @@ async fn main() {
             },
             ..Default::default()
         })
-        .setup(|ctx, _ready, framework| {
+        .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
                 let commands = &framework.options().commands;
                 if !commands.is_empty() {
                     poise::builtins::register_globally(ctx, commands).await?;
                 }
                 Ok(Data {
-                    log_channel: ChannelId::new(
-                        log_channel
-                            .parse()
-                            .expect("Channel ID: Not a proper Discord Snowflake"),
-                    ),
-                    environment,
+                    log_channel: ChannelId::new(log_channel),
+                    environment: framework_environment,
                     pool,
                 })
             })
@@ -80,6 +79,11 @@ async fn main() {
     tokio::select! {
         _ = ctrl_c => {
             info!("Shutting down...");
+            if environment != "develop" {
+                let message = CreateMessage::default().content("Goodbye :saluting_face:");
+                client.http.send_message(ChannelId::new(log_channel), vec![], &message)
+                    .await.expect("Couldn't send Goodbye Message...");
+            }
             client.shard_manager.shutdown_all().await;
         }
         result = client.start() => {
