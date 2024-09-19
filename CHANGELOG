@@ -10,6 +10,7 @@ as well as [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/
 
 ### Fixed
 
+- Migrated from `dotenv` to `dotenvy` ([RUSTSEC-2021-0141](https://rustsec.org/advisories/RUSTSEC-2021-0141.html))
 - Patched [0.1.0] tag date.
 
 ## [0.1.0] - 2024-09-19

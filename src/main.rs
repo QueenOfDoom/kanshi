@@ -5,6 +5,7 @@ mod persistence;
 use crate::log::setup_logger;
 use crate::persistence::{connect_db, initialize_db};
 use ::log::{error, info};
+use dotenvy::dotenv;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::ChannelId;
 use serenity::GatewayIntents;
@@ -25,7 +26,7 @@ async fn main() {
     setup_logger().expect("Failed to initialize logger");
     info!("Database & Logging are available.");
 
-    dotenv::dotenv().ok();
+    dotenv().ok();
     let token = std::env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
     let log_channel =
         std::env::var("LOG_CHANNEL").expect("Expected a log channel in the environment");

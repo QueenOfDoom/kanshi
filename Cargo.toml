@@ -7,7 +7,7 @@ edition = "2021"
 chrono = "0.4.38"
 colored = "2.1.0"
 ctrlc = "3.4.5"
-dotenv = "0.15.0"
+dotenvy = "0.15.7"
 fern = { version = "0.6.2", features = ["colored"] }
 log = "0.4.22"
 poise = "0.6.1"
