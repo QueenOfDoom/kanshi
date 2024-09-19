@@ -34,14 +34,15 @@ pub async fn event_handler(
             if new_message.author.id == framework.bot_id {
                 return Ok(());
             }
-            
+
             create_message(
+                &data.pool,
                 new_message.id.get(),
                 new_message.author.id.get(),
                 new_message.content.clone()
             );
 
-            let entries = get_message_count();
+            let entries = get_message_count(&data.pool);
             if entries % 1000 == 0 {
                 info!("Database contains {} messages", entries);
                 let msg = CreateMessage::new()
@@ -58,7 +59,7 @@ pub async fn event_handler(
             let message_id = event.id.get();
             let user_id = match &event.author {
                 Some(user) => user.id.get(),
-                None => get_author_from_message(message_id)
+                None => get_author_from_message(&data.pool, message_id)
             };
             if user_id == UNKNOWN_USER { return Ok(()) }
 
@@ -71,7 +72,7 @@ pub async fn event_handler(
 
             match &event.content {
                 Some(content) => {
-                    let mut previous_content = get_message_content_by_id(message_id);
+                    let mut previous_content = get_message_content_by_id(&data.pool, message_id);
                     if previous_content.eq(content) {
                         warn!("TODO: Implement non-content message updates (i.e. Embeds)");
                         return Ok(());
@@ -103,11 +104,11 @@ pub async fn event_handler(
                         .send_message(&ctx.http, CreateMessage::new().embed(embed))
                         .await
                         .expect("Unable to send message");
-                    
-                    if exists_message(message_id) {
-                        update_message_content(message_id, content.clone());
+
+                    if exists_message(&data.pool, message_id) {
+                        update_message_content(&data.pool, message_id, content.clone());
                     } else {
-                        create_message(message_id, user.id.get(), content.clone());
+                        create_message(&data.pool, message_id, user.id.get(), content.clone());
                     }
                 }
                 None => {
@@ -118,7 +119,7 @@ pub async fn event_handler(
         FullEvent::MessageDelete {
             deleted_message_id, ..
         } => {
-            let (user_id, content) = get_message_content_and_author_by_id(deleted_message_id.get());
+            let (user_id, content) = get_message_content_and_author_by_id(&data.pool, deleted_message_id.get());
 
             if user_id == framework.bot_id.get() {
                 return Ok(());
