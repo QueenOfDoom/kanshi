@@ -3,7 +3,7 @@ use log::{debug, info, warn};
 
 use poise::serenity_prelude::{self as serenity, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, Mentionable, Timestamp, UserId};
 use serenity::FullEvent;
-use crate::persistence::{create_message, get_author_from_message, get_message_content_and_author_by_id, get_message_content_by_id, get_message_count, update_message_content};
+use crate::persistence::{create_message, exists_message, get_author_from_message, get_message_content_and_author_by_id, get_message_content_by_id, get_message_count, update_message_content};
 use crate::util::UNKNOWN_USER;
 
 fn construct_msg_ref(guild_id: u64, channel_id: u64, message_id: u64) -> String {
@@ -55,9 +55,10 @@ pub async fn event_handler(
         FullEvent::MessageUpdate { event, .. } => {
             debug!("Message {:?} updated to: {:?}", event.id, event.content);
 
+            let message_id = event.id.get();
             let user_id = match &event.author {
                 Some(user) => user.id.get(),
-                None => get_author_from_message(event.id.get())
+                None => get_author_from_message(message_id)
             };
             if user_id == UNKNOWN_USER { return Ok(()) }
 
@@ -70,7 +71,7 @@ pub async fn event_handler(
 
             match &event.content {
                 Some(content) => {
-                    let mut previous_content = get_message_content_by_id(event.id.get());
+                    let mut previous_content = get_message_content_by_id(message_id);
                     if previous_content.eq(content) {
                         warn!("TODO: Implement non-content message updates (i.e. Embeds)");
                         return Ok(());
@@ -85,7 +86,7 @@ pub async fn event_handler(
 
                     let embed = CreateEmbed::new()
                         .title("Message Updated")
-                        .url(construct_msg_ref(guild_id, event.channel_id.get(), event.id.get()))
+                        .url(construct_msg_ref(guild_id, event.channel_id.get(), message_id))
                         .timestamp(Timestamp::now())
                         .colour(Colour::ORANGE)
                         .field(
@@ -102,8 +103,12 @@ pub async fn event_handler(
                         .send_message(&ctx.http, CreateMessage::new().embed(embed))
                         .await
                         .expect("Unable to send message");
-
-                    update_message_content(event.id.get(), content.clone());
+                    
+                    if exists_message(message_id) {
+                        update_message_content(message_id, content.clone());
+                    } else {
+                        create_message(message_id, user.id.get(), content.clone());
+                    }
                 }
                 None => {
                     warn!("Message Update occurred not in message content")

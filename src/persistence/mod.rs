@@ -50,6 +50,13 @@ pub fn get_message_content_and_author_by_id(message_id: u64) -> (u64, String) {
     )
 }
 
+pub fn exists_message(message_id: u64) -> bool {
+    use crate::persistence::schema::messages::dsl::*;
+    let connection = &mut establish_connection();
+    messages.find(message_id as i64).count().get_result::<i64>(connection)
+        .expect("Error loading messages.") > 0
+}
+
 pub fn get_message_count() -> i64 {
     use crate::persistence::schema::messages::dsl::*;
     let connection = &mut establish_connection();
