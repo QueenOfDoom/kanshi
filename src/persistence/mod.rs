@@ -1,72 +1,74 @@
-use rusqlite::{Connection, OptionalExtension, Result};
+pub(crate) mod schema;
+pub(crate) mod models;
 
-pub fn connect_db() -> Result<Connection> {
-    let conn = Connection::open("kanshi.db")?;
-    Ok(conn)
+use diesel::{Connection, SqliteConnection};
+use diesel::prelude::*;
+use crate::persistence::models::*;
+use crate::util::UNKNOWN_USER;
+
+pub fn establish_connection() -> SqliteConnection {
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("Expected a database url in the environment");
+    SqliteConnection::establish(&database_url)
+        .expect("Database Connection Failure")
 }
 
-pub fn initialize_db(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS message (
-            id INTEGER PRIMARY KEY,
-            author INTEGER NOT NULL,
-            content TEXT NOT NULL
-         )",
-        [],
-    )?;
-    Ok(())
+pub fn get_author_from_message(message_id: u64) -> u64 {
+    use crate::persistence::schema::messages::dsl::*;
+    let connection = &mut establish_connection();
+    messages.find(message_id as i64)
+        .select(Message::as_select())
+        .first(connection)
+        .optional()
+        .expect("Error loading messages")
+        .map_or(UNKNOWN_USER, |m| m.author as u64)
 }
 
-pub fn insert_message(conn: &Connection, id: u64, author: u64, content: &str) -> Result<()> {
-    conn.execute(
-        "INSERT INTO message (id, author, content) VALUES (?1, ?2, ?3)",
-        [&id.to_string(), &author.to_string(), content],
-    )?;
-    Ok(())
+pub fn get_message_content_by_id(message_id: u64) -> String {
+    use crate::persistence::schema::messages::dsl::*;
+    let connection = &mut establish_connection();
+    messages.find(message_id as i64)
+        .select(Message::as_select())
+        .first(connection)
+        .optional()
+        .expect("Error loading messages")
+        .map_or("<unknown message>".to_string(), |m| m.content.clone())
 }
 
-pub fn update_message_by_id(conn: &Connection, id: u64, new_content: &str) -> Result<()> {
-    conn.execute(
-        "UPDATE message SET content = ?1 WHERE id = ?2",
-        [new_content, &id.to_string()],
-    )?;
-    Ok(())
+pub fn get_message_content_and_author_by_id(message_id: u64) -> (u64, String) {
+    use crate::persistence::schema::messages::dsl::*;
+    let connection = &mut establish_connection();
+    let results = messages.find(message_id as i64)
+        .select(Message::as_select())
+        .first(connection)
+        .optional()
+        .expect("Error loading messages");
+    
+    results.map_or(
+        (UNKNOWN_USER, "<unknown_message>".to_string()),
+        |m| (m.author as u64, m.content.clone())
+    )
 }
 
-pub fn get_message_by_id(conn: &Connection, id: u64) -> Result<Option<(u64, String)>> {
-    let mut stmt = conn.prepare("SELECT author, content FROM message WHERE id = ?1")?;
-    let result = stmt
-        .query_row([&id], |row| {
-            let author: u64 = row.get(0)?;
-            let content: String = row.get(1)?;
-            Ok((author, content))
-        })
-        .optional()?;
-    Ok(result)
+pub fn get_message_count() -> i64 {
+    use crate::persistence::schema::messages::dsl::*;
+    let connection = &mut establish_connection();
+    messages.count().get_result::<i64>(connection).expect("Error loading messages.")
 }
 
-pub fn get_message_author_by_id(conn: &Connection, id: u64) -> Result<Option<u64>> {
-    let mut stmt = conn.prepare("SELECT author FROM message WHERE id = ?1")?;
-    let result = stmt
-        .query_row([&id], |row| {
-            let author: u64 = row.get(0)?;
-            Ok(author)
-        }).optional()?;
-    Ok(result)
+pub fn create_message(message_id: u64, author_id: u64, text: String) -> Message {
+    use crate::persistence::schema::messages::dsl::*;
+    let connection = &mut establish_connection();
+    let new_message = Message { id: message_id as i64, author: author_id as i64, content: text };
+    diesel::insert_into(messages).values(&new_message).execute(connection)
+        .expect("Error creating message.");
+    new_message
 }
 
-pub fn get_message_content_by_id(conn: &Connection, id: u64) -> Result<Option<String>> {
-    let mut stmt = conn.prepare("SELECT content FROM message WHERE id = ?1")?;
-    let result = stmt
-        .query_row([&id], |row| {
-            let content: String = row.get(0)?;
-            Ok(content)
-        }).optional()?;
-    Ok(result)
-}
-
-pub fn get_message_count(conn: &Connection) -> Result<u64> {
-    let mut stmt = conn.prepare("SELECT COUNT(*) FROM message")?;
-    let count: u64 = stmt.query_row([], |row| row.get(0))?;
-    Ok(count)
+pub fn update_message_content(message_id: u64, text: String) {
+    use crate::persistence::schema::messages::dsl::*;
+    let connection = &mut establish_connection();
+    diesel::update(messages.find(message_id as i64))
+        .set(content.eq(text))
+        .execute(connection).expect("Error updating message.");
 }

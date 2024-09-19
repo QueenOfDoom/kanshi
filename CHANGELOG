@@ -8,6 +8,10 @@ as well as [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/
 
 ## [Unreleased]
 
+### Changed
+
+- Migrated from `rusqlite` to `diesel` for the sake of having a proper ORM
+
 ### Fixed
 
 - Migrated from `dotenv` to `dotenvy` ([RUSTSEC-2021-0141](https://rustsec.org/advisories/RUSTSEC-2021-0141.html))

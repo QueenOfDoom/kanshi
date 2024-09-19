@@ -1,14 +1,18 @@
 mod event;
 mod log;
 mod persistence;
+mod util;
 
 use crate::log::setup_logger;
-use crate::persistence::{connect_db, initialize_db};
+use crate::persistence::establish_connection;
 use ::log::{error, info};
+use diesel::SqliteConnection;
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use dotenvy::dotenv;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::ChannelId;
 use serenity::GatewayIntents;
+use std::error::Error as StdError;
 use tokio::signal;
 
 // User Data
@@ -16,23 +20,28 @@ struct Data {
     log_channel: ChannelId,
     environment: String,
 }
-type Error = Box<dyn std::error::Error + Send + Sync>;
-// type Context<'a> = poise::Context<'a, Data, Error>;
+type Error = Box<dyn StdError + Send + Sync>;
+
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+
+fn run_migrations(conn: &mut SqliteConnection) -> Result<(), Box<dyn StdError + Send + Sync>> {
+    conn.run_pending_migrations(MIGRATIONS)?;
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() {
-    let conn = connect_db().expect("Database Connection Failure");
-    initialize_db(&conn).expect("Database Initialization Failure");
-    setup_logger().expect("Failed to initialize logger");
-    info!("Database & Logging are available.");
-
     dotenv().ok();
     let token = std::env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
-    let log_channel =
-        std::env::var("LOG_CHANNEL").expect("Expected a log channel in the environment");
+    let log_channel = std::env::var("LOG_CHANNEL").expect("Expected a log channel in the environment");
     let environment = std::env::var("ENV").unwrap_or("production".to_string());
     info!("Environment is set up");
-
+    
+    let connection = &mut establish_connection();
+    run_migrations(connection).expect("Database should be initialize-able.");
+    setup_logger().expect("Failed to initialize logger");
+    info!("Database & Logging are available.");
+    
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
 
     let framework = poise::Framework::builder()

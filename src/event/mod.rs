@@ -1,9 +1,10 @@
 use crate::{Data, Error};
 use log::{debug, info, warn};
 
-use crate::persistence::{connect_db, get_message_author_by_id, get_message_by_id, get_message_content_by_id, get_message_count, insert_message, update_message_by_id};
 use poise::serenity_prelude::{self as serenity, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, Mentionable, Timestamp, UserId};
 use serenity::FullEvent;
+use crate::persistence::{create_message, get_author_from_message, get_message_content_and_author_by_id, get_message_content_by_id, get_message_count, update_message_content};
+use crate::util::UNKNOWN_USER;
 
 fn construct_msg_ref(guild_id: u64, channel_id: u64, message_id: u64) -> String {
     format!("https://discord.com/channels/{}/{}/{}",
@@ -30,20 +31,18 @@ pub async fn event_handler(
             }
         }
         FullEvent::Message { new_message, .. } => {
-            let db = connect_db().expect("Database Connection Failure");
             if new_message.author.id == framework.bot_id {
                 return Ok(());
             }
-            insert_message(
-                &db,
+            
+            create_message(
                 new_message.id.get(),
                 new_message.author.id.get(),
-                new_message.content.as_str(),
-            )
-            .expect("Unable to insert message");
+                new_message.content.clone()
+            );
 
-            let entries = get_message_count(&db).expect("This call must succeed.");
-            if entries % 1000u64 == 0 {
+            let entries = get_message_count();
+            if entries % 1000 == 0 {
                 info!("Database contains {} messages", entries);
                 let msg = CreateMessage::new()
                     .content(format!("Database now contains {} messages.", entries));
@@ -54,18 +53,13 @@ pub async fn event_handler(
             }
         }
         FullEvent::MessageUpdate { event, .. } => {
-            let db = connect_db().expect("Database Connection Failure");
             debug!("Message {:?} updated to: {:?}", event.id, event.content);
 
             let user_id = match &event.author {
                 Some(user) => user.id.get(),
-                None => {
-                    get_message_author_by_id(&db, event.id.get())
-                        .expect("Could not execute query.")
-                        .unwrap_or(0)
-                }
+                None => get_author_from_message(event.id.get())
             };
-            if user_id == 0 { return Ok(()) }
+            if user_id == UNKNOWN_USER { return Ok(()) }
 
             let user = UserId::new(user_id).to_user(&ctx.http)
                 .await.expect("User should exist.");
@@ -76,10 +70,7 @@ pub async fn event_handler(
 
             match &event.content {
                 Some(content) => {
-                    let mut previous_content = get_message_content_by_id(&db, event.id.get())
-                        .expect("Could not execute query.")
-                        .unwrap_or("<unknown message>".to_string());
-
+                    let mut previous_content = get_message_content_by_id(event.id.get());
                     if previous_content.eq(content) {
                         warn!("TODO: Implement non-content message updates (i.e. Embeds)");
                         return Ok(());
@@ -112,8 +103,7 @@ pub async fn event_handler(
                         .await
                         .expect("Unable to send message");
 
-                    update_message_by_id(&db, event.id.get(), content)
-                        .expect("Error making the update request.");
+                    update_message_content(event.id.get(), content.clone());
                 }
                 None => {
                     warn!("Message Update occurred not in message content")
@@ -123,10 +113,7 @@ pub async fn event_handler(
         FullEvent::MessageDelete {
             deleted_message_id, ..
         } => {
-            let db = connect_db().expect("Database Connection Failure");
-            let (user_id, content) = get_message_by_id(&db, deleted_message_id.get())
-                .expect("Error making the database request.")
-                .map_or((0u64, "<unknown message>".to_string()), |(u, s)| (u, s));
+            let (user_id, content) = get_message_content_and_author_by_id(deleted_message_id.get());
 
             if user_id == framework.bot_id.get() {
                 return Ok(());

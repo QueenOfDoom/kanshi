@@ -7,9 +7,10 @@ edition = "2021"
 chrono = "0.4.38"
 colored = "2.1.0"
 ctrlc = "3.4.5"
+diesel = { version = "2.2.4", features = ["sqlite"] }
+diesel_migrations = "2.2.0"
 dotenvy = "0.15.7"
 fern = { version = "0.6.2", features = ["colored"] }
 log = "0.4.22"
 poise = "0.6.1"
-rusqlite = { version = "0.32.1", features = ["bundled"] }
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "signal"] }
