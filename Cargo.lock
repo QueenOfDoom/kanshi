@@ -863,6 +863,8 @@ dependencies = [
  "log",
  "poise",
  "r2d2",
+ "regex",
+ "semver",
  "tokio",
 ]
 

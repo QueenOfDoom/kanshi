@@ -8,9 +8,9 @@ use crate::util::UNKNOWN_USER;
 
 fn construct_msg_ref(guild_id: u64, channel_id: u64, message_id: u64) -> String {
     format!("https://discord.com/channels/{}/{}/{}",
-            guild_id.to_string(),
-            channel_id.to_string(),
-            message_id.to_string())
+            guild_id,
+            channel_id,
+            message_id)
 }
 
 pub async fn event_handler(
@@ -92,7 +92,7 @@ pub async fn event_handler(
                         .colour(Colour::ORANGE)
                         .field(
                             "Author",
-                            format!("{} ({})", user.mention(), user_id.to_string()),
+                            format!("{} ({})", user.mention(), user_id),
                             false,
                         )
                         .field("Old Message", previous_content, false)
@@ -145,7 +145,7 @@ pub async fn event_handler(
                 }
                 embed = embed.field(
                     "Author",
-                    format!("{} ({})", id.mention().to_string(), user_id.to_string()),
+                    format!("{} ({})", id.mention(), user_id),
                     false,
                 );
             }

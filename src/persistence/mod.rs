@@ -28,7 +28,7 @@ pub fn sqlite_pool_handler(pool: &SqlitePool) -> Result<SqlitePooledConnection, 
 
 pub fn get_author_from_message(pool: &SqlitePool, message_id: u64) -> u64 {
     use crate::persistence::schema::messages::dsl::*;
-    let connection = &mut sqlite_pool_handler(&pool)
+    let connection = &mut sqlite_pool_handler(pool)
         .expect("Pooled Connection failed.");
     messages.find(message_id as i64)
         .select(Message::as_select())
@@ -40,7 +40,7 @@ pub fn get_author_from_message(pool: &SqlitePool, message_id: u64) -> u64 {
 
 pub fn get_message_content_by_id(pool: &SqlitePool, message_id: u64) -> String {
     use crate::persistence::schema::messages::dsl::*;
-    let connection = &mut sqlite_pool_handler(&pool)
+    let connection = &mut sqlite_pool_handler(pool)
         .expect("Pooled Connection failed.");
     messages.find(message_id as i64)
         .select(Message::as_select())
@@ -52,7 +52,7 @@ pub fn get_message_content_by_id(pool: &SqlitePool, message_id: u64) -> String {
 
 pub fn get_message_content_and_author_by_id(pool: &SqlitePool, message_id: u64) -> (u64, String) {
     use crate::persistence::schema::messages::dsl::*;
-    let connection = &mut sqlite_pool_handler(&pool)
+    let connection = &mut sqlite_pool_handler(pool)
         .expect("Pooled Connection failed.");
     let results = messages.find(message_id as i64)
         .select(Message::as_select())
@@ -68,7 +68,7 @@ pub fn get_message_content_and_author_by_id(pool: &SqlitePool, message_id: u64) 
 
 pub fn exists_message(pool: &SqlitePool, message_id: u64) -> bool {
     use crate::persistence::schema::messages::dsl::*;
-    let connection = &mut sqlite_pool_handler(&pool)
+    let connection = &mut sqlite_pool_handler(pool)
         .expect("Pooled Connection failed.");
     messages.find(message_id as i64).count().get_result::<i64>(connection)
         .expect("Error loading messages.") > 0
@@ -76,14 +76,14 @@ pub fn exists_message(pool: &SqlitePool, message_id: u64) -> bool {
 
 pub fn get_message_count(pool: &SqlitePool) -> i64 {
     use crate::persistence::schema::messages::dsl::*;
-    let connection = &mut sqlite_pool_handler(&pool)
+    let connection = &mut sqlite_pool_handler(pool)
         .expect("Pooled Connection failed.");
     messages.count().get_result::<i64>(connection).expect("Error loading messages.")
 }
 
 pub fn create_message(pool: &SqlitePool, message_id: u64, author_id: u64, text: String) -> Message {
     use crate::persistence::schema::messages::dsl::*;
-    let connection = &mut sqlite_pool_handler(&pool)
+    let connection = &mut sqlite_pool_handler(pool)
         .expect("Pooled Connection failed.");
     let new_message = Message { id: message_id as i64, author: author_id as i64, content: text };
     diesel::insert_into(messages).values(&new_message).execute(connection)
@@ -93,7 +93,7 @@ pub fn create_message(pool: &SqlitePool, message_id: u64, author_id: u64, text: 
 
 pub fn update_message_content(pool: &SqlitePool, message_id: u64, text: String) {
     use crate::persistence::schema::messages::dsl::*;
-    let connection = &mut sqlite_pool_handler(&pool)
+    let connection = &mut sqlite_pool_handler(pool)
         .expect("Pooled Connection failed.");
     diesel::update(messages.find(message_id as i64))
         .set(content.eq(text))

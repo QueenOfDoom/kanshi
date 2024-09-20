@@ -2,6 +2,7 @@ mod event;
 mod log;
 mod persistence;
 mod util;
+mod commands;
 
 use crate::log::setup_logger;
 use crate::persistence::{establish_connection, sqlite_pool_handler, SqlitePool, SqlitePooledConnection};
@@ -12,21 +13,38 @@ use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::{ChannelId, CreateMessage};
 use serenity::GatewayIntents;
 use std::error::Error as StdError;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::signal;
 
 // User Data
-struct Data {
+pub struct Data {
     log_channel: ChannelId,
     environment: String,
     pool: SqlitePool,
 }
-type Error = Box<dyn StdError + Send + Sync>;
+pub type Error = Box<dyn StdError + Send + Sync>;
+pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 fn run_migrations(mut conn: SqlitePooledConnection) -> Result<(), Box<dyn StdError + Send + Sync>> {
     conn.run_pending_migrations(MIGRATIONS)?;
     Ok(())
+}
+
+async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
+    match error {
+        poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
+        poise::FrameworkError::Command { error, ctx, .. } => {
+            println!("Error in command `{}`: {:?}", ctx.command().name, error,);
+        }
+        error => {
+            if let Err(e) = poise::builtins::on_error(error).await {
+                println!("Error while handling error: {}", e)
+            }
+        }
+    }
 }
 
 #[tokio::main]
@@ -50,6 +68,14 @@ async fn main() {
     let framework_environment = environment.clone();
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
+            commands: vec![commands::changelog()],
+            prefix_options: poise::PrefixFrameworkOptions {
+                prefix: Some("$".into()),
+                edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(Duration::from_secs(3600)))),
+                ..Default::default()
+            },
+            on_error: |error| Box::pin(on_error(error)),
+            
             event_handler: |ctx, event, framework, data| {
                 Box::pin(event::event_handler(ctx, event, framework, data))
             },

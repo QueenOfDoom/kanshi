@@ -10,6 +10,7 @@ as well as [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/
 
 ### Added
 
+- Changelog Command with SemVer query support
 - Optimize Database queries by using a Connection Pool via `r2d2`
 - Registry of edited messages from when the bot wasn't online yet
 
