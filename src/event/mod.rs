@@ -1,16 +1,22 @@
 use crate::{Data, Error};
 use log::{debug, info, warn};
 
-use poise::serenity_prelude::{self as serenity, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, Mentionable, Timestamp, UserId};
-use serenity::FullEvent;
-use crate::persistence::{create_message, exists_message, get_author_from_message, get_message_content_and_author_by_id, get_message_content_by_id, get_message_count, update_message_content};
+use crate::persistence::{
+    create_message, exists_message, get_author_from_message, get_message_content_and_author_by_id,
+    get_message_content_by_id, get_message_count, update_message_content,
+};
 use crate::util::UNKNOWN_USER;
+use poise::serenity_prelude::{
+    self as serenity, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, Mentionable,
+    Timestamp, UserId,
+};
+use serenity::FullEvent;
 
 fn construct_msg_ref(guild_id: u64, channel_id: u64, message_id: u64) -> String {
-    format!("https://discord.com/channels/{}/{}/{}",
-            guild_id,
-            channel_id,
-            message_id)
+    format!(
+        "https://discord.com/channels/{}/{}/{}",
+        guild_id, channel_id, message_id
+    )
 }
 
 pub async fn event_handler(
@@ -39,7 +45,7 @@ pub async fn event_handler(
                 &data.pool,
                 new_message.id.get(),
                 new_message.author.id.get(),
-                new_message.content.clone()
+                new_message.content.clone(),
             );
 
             let entries = get_message_count(&data.pool);
@@ -59,16 +65,24 @@ pub async fn event_handler(
             let message_id = event.id.get();
             let user_id = match &event.author {
                 Some(user) => user.id.get(),
-                None => get_author_from_message(&data.pool, message_id)
+                None => get_author_from_message(&data.pool, message_id),
             };
-            if user_id == UNKNOWN_USER { return Ok(()) }
+            if user_id == UNKNOWN_USER {
+                return Ok(());
+            }
 
-            let user = UserId::new(user_id).to_user(&ctx.http)
-                .await.expect("User should exist.");
-            if user.bot { return Ok(()) }
+            let user = UserId::new(user_id)
+                .to_user(&ctx.http)
+                .await
+                .expect("User should exist.");
+            if user.bot {
+                return Ok(());
+            }
 
             let guild_id = event.guild_id.map_or(0, |id| id.get());
-            if guild_id == 0 { return Ok(()) }
+            if guild_id == 0 {
+                return Ok(());
+            }
 
             match &event.content {
                 Some(content) => {
@@ -83,22 +97,23 @@ pub async fn event_handler(
                     let mut current_content = content.clone();
                     current_content.truncate(1024);
 
-                    if framework.bot_id == user_id { return Ok(()); }
+                    if framework.bot_id == user_id {
+                        return Ok(());
+                    }
 
                     let embed = CreateEmbed::new()
                         .title("Message Updated")
-                        .url(construct_msg_ref(guild_id, event.channel_id.get(), message_id))
+                        .url(construct_msg_ref(
+                            guild_id,
+                            event.channel_id.get(),
+                            message_id,
+                        ))
                         .timestamp(Timestamp::now())
                         .colour(Colour::ORANGE)
-                        .field(
-                            "Author",
-                            format!("{} ({})", user.mention(), user_id),
-                            false,
-                        )
+                        .field("Author", format!("{} ({})", user.mention(), user_id), false)
                         .field("Old Message", previous_content, false)
                         .field("New Message", current_content, false)
-                        .footer(CreateEmbedFooter::new(&user.name)
-                            .icon_url(user.face()));
+                        .footer(CreateEmbedFooter::new(&user.name).icon_url(user.face()));
 
                     data.log_channel
                         .send_message(&ctx.http, CreateMessage::new().embed(embed))
@@ -119,7 +134,8 @@ pub async fn event_handler(
         FullEvent::MessageDelete {
             deleted_message_id, ..
         } => {
-            let (user_id, content) = get_message_content_and_author_by_id(&data.pool, deleted_message_id.get());
+            let (user_id, content) =
+                get_message_content_and_author_by_id(&data.pool, deleted_message_id.get());
 
             if user_id == framework.bot_id.get() {
                 return Ok(());
@@ -143,11 +159,7 @@ pub async fn event_handler(
                         embed = embed.footer(CreateEmbedFooter::new("<unknown user>"));
                     }
                 }
-                embed = embed.field(
-                    "Author",
-                    format!("{} ({})", id.mention(), user_id),
-                    false,
-                );
+                embed = embed.field("Author", format!("{} ({})", id.mention(), user_id), false);
             }
 
             embed = embed.field("Deleted Message", content, false);

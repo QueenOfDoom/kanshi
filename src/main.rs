@@ -1,11 +1,16 @@
+mod commands;
+mod error;
 mod event;
 mod log;
 mod persistence;
+#[cfg(test)]
+mod tests;
 mod util;
-mod commands;
 
 use crate::log::setup_logger;
-use crate::persistence::{establish_connection, sqlite_pool_handler, SqlitePool, SqlitePooledConnection};
+use crate::persistence::{
+    establish_connection, sqlite_pool_handler, SqlitePool, SqlitePooledConnection,
+};
 use ::log::{error, info};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use dotenvy::dotenv;
@@ -52,17 +57,18 @@ async fn main() {
     dotenv().ok();
     let token = std::env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
     let log_channel = std::env::var("LOG_CHANNEL")
-        .expect("Expected a log channel in the environment").parse()
+        .expect("Expected a log channel in the environment")
+        .parse()
         .expect("Channel ID: Not a proper Discord Snowflake");
     let environment = std::env::var("ENV").unwrap_or("production".to_string());
     info!("Environment is set up");
-    
+
     let pool = establish_connection();
     let connection = sqlite_pool_handler(&pool).expect("Pooled Connection failed.");
     run_migrations(connection).expect("Database should be initialize-able.");
     setup_logger().expect("Failed to initialize logger");
     info!("Database & Logging are available.");
-    
+
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
 
     let framework_environment = environment.clone();
@@ -71,11 +77,13 @@ async fn main() {
             commands: vec![commands::changelog()],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("$".into()),
-                edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(Duration::from_secs(3600)))),
+                edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(
+                    Duration::from_secs(3600),
+                ))),
                 ..Default::default()
             },
             on_error: |error| Box::pin(on_error(error)),
-            
+
             event_handler: |ctx, event, framework, data| {
                 Box::pin(event::event_handler(ctx, event, framework, data))
             },
